@@ -1,5 +1,5 @@
 """
-Logger - Ghi log dữ liệu serial vào SQLite database
+Logger - SQLite database logging for serial data
 Thread-safe logging system
 """
 import sqlite3
@@ -11,13 +11,13 @@ from enum import Enum
 
 
 class DataDirection(Enum):
-    """Hướng truyền dữ liệu"""
+    """Data direction"""
     TX = "TX"
     RX = "RX"
 
 
 class SerialLogger:
-    """Logger cho serial data"""
+    """Logger for serial data"""
     
     def __init__(self, db_path: str = "logs/serial_monitor.db"):
         self.db_path = db_path
@@ -26,18 +26,21 @@ class SerialLogger:
         self._init_database()
     
     def _ensure_db_dir(self):
-        """Đảm bảo thư mục logs tồn tại"""
+        """Ensure logs directory exists"""
         db_dir = os.path.dirname(self.db_path)
         if db_dir and not os.path.exists(db_dir):
-            os.makedirs(db_dir)
+            try:
+                os.makedirs(db_dir, exist_ok=True)
+            except (FileExistsError, OSError):
+                pass  # Directory already exists or is a file, ignore
     
     def _init_database(self):
-        """Khởi tạo database schema"""
+        """Initialize database schema"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            # Bảng logs - lưu tất cả dữ liệu serial
+            # logs table
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS logs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +54,7 @@ class SerialLogger:
                 )
             ''')
             
-            # Bảng sessions - lưu thông tin phiên kết nối
+            # sessions table
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS sessions (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,7 +69,7 @@ class SerialLogger:
                 )
             ''')
             
-            # Bảng scripts - lưu các script đã tạo
+            # scripts table
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS scripts (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,7 +81,7 @@ class SerialLogger:
                 )
             ''')
             
-            # Index để tăng tốc query
+            # Indexes
             cursor.execute('''
                 CREATE INDEX IF NOT EXISTS idx_logs_timestamp 
                 ON logs(timestamp)
@@ -97,7 +100,7 @@ class SerialLogger:
     
     def start_session(self, port: str, baudrate: int, databits: int, 
                       parity: str, stopbits: int, notes: str = "") -> int:
-        """Bắt đầu session mới và trả về session_id"""
+        """Start new session and return session_id"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -115,7 +118,7 @@ class SerialLogger:
             return session_id
     
     def end_session(self, session_id: int):
-        """Kết thúc session"""
+        """End session"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -130,7 +133,7 @@ class SerialLogger:
     
     def log_data(self, port: str, direction: DataDirection, data: bytes, 
                  display_mode: str = None, session_id: int = None):
-        """Ghi log dữ liệu serial"""
+        """Log serial data"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -147,7 +150,7 @@ class SerialLogger:
     def get_logs(self, port: Optional[str] = None, session_id: Optional[int] = None,
                  start_time: Optional[str] = None, end_time: Optional[str] = None,
                  limit: int = 1000) -> List[Dict[str, Any]]:
-        """Lấy logs theo filter"""
+        """Get logs with filters"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -182,7 +185,7 @@ class SerialLogger:
             return [dict(row) for row in rows]
     
     def get_sessions(self, port: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
-        """Lấy danh sách sessions"""
+        """Get session list"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -205,7 +208,7 @@ class SerialLogger:
             return [dict(row) for row in rows]
     
     def save_script(self, name: str, content: str, description: str = ""):
-        """Lưu script"""
+        """Save script"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -222,7 +225,7 @@ class SerialLogger:
             conn.close()
     
     def get_script(self, name: str) -> Optional[Dict[str, Any]]:
-        """Lấy script theo tên"""
+        """Get script by name"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -235,7 +238,7 @@ class SerialLogger:
             return dict(row) if row else None
     
     def get_all_scripts(self) -> List[Dict[str, Any]]:
-        """Lấy tất cả scripts"""
+        """Get all scripts"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             conn.row_factory = sqlite3.Row
@@ -248,7 +251,7 @@ class SerialLogger:
             return [dict(row) for row in rows]
     
     def delete_script(self, name: str):
-        """Xóa script"""
+        """Delete script"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -257,7 +260,7 @@ class SerialLogger:
             conn.close()
     
     def clear_logs(self, older_than_days: Optional[int] = None):
-        """Xóa logs cũ"""
+        """Clear old logs"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
@@ -273,7 +276,7 @@ class SerialLogger:
             conn.close()
     
     def get_database_size(self) -> int:
-        """Lấy kích thước database (bytes)"""
+        """Get database size in bytes"""
         if os.path.exists(self.db_path):
             return os.path.getsize(self.db_path)
         return 0
