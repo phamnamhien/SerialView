@@ -89,8 +89,8 @@ class MainWindow(QMainWindow):
             raise
     
     def _setup_ui(self):
-        """Setup UI bằng code"""
-        self.setWindowTitle("Serial Port Monitor")
+        """Setup UI"""
+        self.setWindowTitle("SerialView")
         self.resize(1200, 800)
         
         # Central widget
@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
         self.send_panel = SendPanel()
         self.send_panel.send_data.connect(self._on_send_panel_data)
         self.send_panel.connect_clicked.connect(self._on_connect_disconnect_clicked)
-        self.send_panel.set_connection_state(False)  # Initially disconnected
+        self.send_panel.set_connection_state(False)
         
         send_dock = QDockWidget("Send Panel", self)
         send_dock.setWidget(self.send_panel)
@@ -125,7 +125,7 @@ class MainWindow(QMainWindow):
         self.statusbar.showMessage("Ready")
     
     def _create_menus(self):
-        """Tạo menu bar"""
+        """Create menu bar"""
         menubar = self.menuBar()
         
         # File Menu
@@ -179,7 +179,7 @@ class MainWindow(QMainWindow):
         self.actionDarkTheme.setCheckable(True)
         self.actionLightTheme = QAction("Light Theme", self)
         self.actionLightTheme.setCheckable(True)
-        self.actionLightTheme.setChecked(True)  # Default light
+        self.actionLightTheme.setChecked(True)
         theme_menu.addAction(self.actionDarkTheme)
         theme_menu.addAction(self.actionLightTheme)
         
@@ -204,11 +204,11 @@ class MainWindow(QMainWindow):
         help_menu.addAction(self.actionAbout)
     
     def _connect_signals(self):
-        """Kết nối các signals"""
+        """Connect signals"""
         # Menu File
         self.actionExit.triggered.connect(self.close)
         
-        # Menu Port - giữ lại để có thể dùng từ menu
+        # Menu Port
         self.actionConnect.triggered.connect(self._on_connect_disconnect_clicked)
         self.actionDisconnect.triggered.connect(self._on_connect_disconnect_clicked)
         self.actionPortSettings.triggered.connect(self._on_port_settings)
@@ -242,7 +242,7 @@ class MainWindow(QMainWindow):
     
     @pyqtSlot(bytes)
     def _on_send_panel_data(self, data: bytes):
-        """Xử lý khi SendPanel muốn gửi data"""
+        """Handle SendPanel data transmission"""
         if self.current_connection and self.current_connection.is_connected:
             self.current_connection.send_data(data)
         else:
@@ -250,34 +250,27 @@ class MainWindow(QMainWindow):
     
     @pyqtSlot()
     def _on_connect_disconnect_clicked(self):
-        """Xử lý Connect/Disconnect toggle"""
+        """Handle Connect/Disconnect toggle"""
         if self.current_connection and self.current_connection.is_connected:
-            # Đang connected -> disconnect
             self._disconnect()
         else:
-            # Đang disconnected -> connect
             self._connect()
     
     def _connect(self):
-        """Kết nối tới serial port"""
-        # Hiển thị dialog chọn port
+        """Connect to serial port"""
         dialog = PortConfigDialog(self)
         if dialog.exec():
             config = dialog.get_config()
             
-            # Tạo connection
             self.current_connection = self.serial_manager.create_connection(config)
             self.current_port = config.port
             
-            # Connect signals
             self.current_connection.data_received.connect(self._on_data_received)
             self.current_connection.data_sent.connect(self._on_data_sent)
             self.current_connection.error_occurred.connect(self._on_error)
             self.current_connection.connection_lost.connect(self._on_connection_lost)
             
-            # Connect
             if self.current_connection.connect():
-                # Start logging session
                 self.current_session_id = self.logger.start_session(
                     config.port, config.baudrate, config.databits,
                     config.parity, config.stopbits
@@ -285,23 +278,18 @@ class MainWindow(QMainWindow):
                 
                 self.statusBar().showMessage(f"Connected to {config.port}")
                 self._update_ui_state()
-                
-                # Hiển thị thông báo kết nối
                 self._show_system_message(f"Connected to {config.port} at {config.baudrate} baud", "info")
             else:
                 QMessageBox.critical(self, "Error", "Failed to connect")
     
     def _disconnect(self):
-        """Ngắt kết nối"""
+        """Disconnect from port"""
         if not self.current_connection:
             return
         
-        # Hiển thị thông báo trước khi disconnect
         self._show_system_message(f"Disconnecting from {self.current_port}", "warning")
-        
         self.current_connection.disconnect()
         
-        # End logging session
         if self.current_session_id:
             self.logger.end_session(self.current_session_id)
             self.current_session_id = None
@@ -311,18 +299,11 @@ class MainWindow(QMainWindow):
     
     @pyqtSlot()
     def _on_port_settings(self):
-        """Mở dialog port settings"""
-        dialog = PortConfigDialog(self)
-        dialog.exec()
-    
-    @pyqtSlot()
-    def _on_port_settings(self):
-        """Mở dialog port settings - có thể thay đổi khi đang connect"""
+        """Open port settings dialog"""
         dialog = PortConfigDialog(self)
         if dialog.exec():
             config = dialog.get_config()
             
-            # Nếu đang connected, reconnect với config mới
             if self.current_connection and self.current_connection.is_connected:
                 reply = QMessageBox.question(
                     self, "Reconnect?",
@@ -331,20 +312,16 @@ class MainWindow(QMainWindow):
                 )
                 
                 if reply == QMessageBox.StandardButton.Yes:
-                    # Disconnect
                     self._disconnect()
                     
-                    # Reconnect với config mới
                     self.current_connection = self.serial_manager.create_connection(config)
                     self.current_port = config.port
                     
-                    # Connect signals
                     self.current_connection.data_received.connect(self._on_data_received)
                     self.current_connection.data_sent.connect(self._on_data_sent)
                     self.current_connection.error_occurred.connect(self._on_error)
                     self.current_connection.connection_lost.connect(self._on_connection_lost)
                     
-                    # Connect
                     if self.current_connection.connect():
                         self.current_session_id = self.logger.start_session(
                             config.port, config.baudrate, config.databits,
@@ -353,14 +330,12 @@ class MainWindow(QMainWindow):
                         
                         self.statusBar().showMessage(f"Reconnected to {config.port}")
                         self._update_ui_state()
-                        
-                        # Hiển thị thông báo trên display windows
                         self._show_system_message(f"Port reconnected with new settings: {config.baudrate} baud", "info")
                     else:
                         QMessageBox.critical(self, "Error", "Failed to reconnect")
     
     def _create_display(self, display_type: str):
-        """Tạo display window mới"""
+        """Create new display window"""
         if not self.current_port:
             QMessageBox.warning(self, "Warning", "Please connect to a port first")
             return
@@ -380,7 +355,6 @@ class MainWindow(QMainWindow):
         elif display_type == 'Modbus':
             window = ModbusDisplayWindow.get_instance(self.current_port, 'Modbus RTU', self)
         elif display_type == 'CustomFrame':
-            # TODO: Cho phép user chọn frame definition
             definition = create_sample_frame_definition()
             window = CustomFrameDisplayWindow.get_instance(self.current_port, f"Custom Frame: {definition.name}", definition, self)
         
@@ -389,39 +363,31 @@ class MainWindow(QMainWindow):
                                    f"{display_type} display already exists for this port")
             return
         
-        # Add to MDI area
         sub_window = self.mdiArea.addSubWindow(window)
         window.closed.connect(self._on_display_closed)
         window.show()
         
-        # Track window
         key = (self.current_port, display_type)
         self.display_windows[key] = window
     
     @pyqtSlot(bytes, datetime)
     def _show_system_message(self, message: str, msg_type: str = "info"):
-        """
-        Hiển thị thông báo hệ thống trên tất cả display windows
-        msg_type: 'info', 'warning', 'error'
-        """
+        """Display system message on all display windows"""
         from ..core.data_parser import TimestampFormatter
         
         timestamp = datetime.now()
         
-        # Chọn màu theo loại message
         color_map = {
-            'info': '#3794ff',      # Blue
-            'warning': '#ffcc00',   # Yellow
-            'error': '#f48771'      # Red
+            'info': '#3794ff',
+            'warning': '#ffcc00',
+            'error': '#f48771'
         }
         color = color_map.get(msg_type, '#3794ff')
         
-        # Update tất cả display windows
         for key, window in list(self.display_windows.items()):
             if window.port == self.current_port:
                 try:
                     if window.isVisible():
-                        # Hiển thị system message với màu đặc biệt
                         if hasattr(window, 'append_text'):
                             ts_str = TimestampFormatter.format_timestamp(timestamp, "%H:%M:%S.%f")
                             formatted_msg = f"[{ts_str}] ⓘ SYSTEM: {message}"
@@ -430,109 +396,92 @@ class MainWindow(QMainWindow):
                     del self.display_windows[key]
     
     def _on_data_received(self, data: bytes, timestamp: datetime):
-        """Xử lý khi nhận được dữ liệu"""
-        # Log to database
+        """Handle received data"""
         if self.current_session_id:
             self.logger.log_data(
                 self.current_port, DataDirection.RX, data,
                 session_id=self.current_session_id
             )
         
-        # Check auto-response rules
         if self.current_connection:
             self.script_engine.check_auto_response(data, self.current_connection)
         
-        # Record nếu đang recording
         self.script_engine.record_data('RX', data, timestamp)
         
-        # Update tất cả display windows
-        # Tạo copy để tránh lỗi khi dict thay đổi trong loop
         windows_copy = list(self.display_windows.items())
         for key, window in windows_copy:
             if window.port == self.current_port:
                 try:
-                    # Kiểm tra window còn tồn tại không
                     if window and not window.isHidden():
                         window.display_data(data, timestamp, 'RX')
                 except RuntimeError:
-                    # Window đã bị deleted, xóa khỏi dict
                     if key in self.display_windows:
                         del self.display_windows[key]
     
     @pyqtSlot(bytes, datetime)
     def _on_data_sent(self, data: bytes, timestamp: datetime):
-        """Xử lý khi gửi dữ liệu"""
-        # Log to database
+        """Handle sent data"""
         if self.current_session_id:
             self.logger.log_data(
                 self.current_port, DataDirection.TX, data,
                 session_id=self.current_session_id
             )
         
-        # Record nếu đang recording
         self.script_engine.record_data('TX', data, timestamp)
         
-        # Update tất cả display windows
-        # Tạo copy để tránh lỗi khi dict thay đổi trong loop
         windows_copy = list(self.display_windows.items())
         for key, window in windows_copy:
             if window.port == self.current_port:
                 try:
-                    # Kiểm tra window còn tồn tại không
                     if window and not window.isHidden():
                         window.display_data(data, timestamp, 'TX')
                 except RuntimeError:
-                    # Window đã bị deleted, xóa khỏi dict
                     if key in self.display_windows:
                         del self.display_windows[key]
     
     @pyqtSlot(str)
     def _on_error(self, error_msg: str):
-        """Xử lý lỗi"""
+        """Handle error"""
         self.statusBar().showMessage(f"Error: {error_msg}")
         self._show_system_message(f"Error: {error_msg}", "error")
         QMessageBox.critical(self, "Error", error_msg)
     
     @pyqtSlot()
     def _on_connection_lost(self):
-        """Xử lý khi mất kết nối"""
+        """Handle connection lost"""
         self.statusBar().showMessage("Connection lost")
         self._show_system_message("Connection lost - port disconnected", "error")
         self._update_ui_state()
     
     @pyqtSlot(str, str)
     def _on_display_closed(self, port: str, display_mode: str):
-        """Xử lý khi đóng display window"""
+        """Handle display window closed"""
         key = (port, display_mode)
         if key in self.display_windows:
             del self.display_windows[key]
     
     @pyqtSlot()
     def _on_script_editor(self):
-        """Mở script editor"""
-        # TODO: Implement script editor dialog
+        """Open script editor"""
         QMessageBox.information(self, "Info", "Script Editor - Coming soon")
     
     @pyqtSlot()
     def _on_auto_response(self):
-        """Mở auto response manager"""
-        # TODO: Implement auto response dialog
+        """Open auto response manager"""
         QMessageBox.information(self, "Info", "Auto Response - Coming soon")
     
     @pyqtSlot()
     def _on_scheduled_tasks(self):
-        """Mở scheduled tasks manager"""
-        # TODO: Implement scheduled tasks dialog
+        """Open scheduled tasks manager"""
         QMessageBox.information(self, "Info", "Scheduled Tasks - Coming soon")
     
     @pyqtSlot()
     def _on_export_data(self):
-        """Export dữ liệu"""
+        """Export data"""
         if not self.current_port:
             QMessageBox.warning(self, "Warning", "No active connection")
             return
         
-        # Chọn file
         filepath, filter_type = QFileDialog.getSaveFileName(
             self, "Export Data", "", 
             "CSV (*.csv);;Text (*.txt);;HTML (*.html);;JSON (*.json)"
@@ -541,10 +490,8 @@ class MainWindow(QMainWindow):
         if not filepath:
             return
         
-        # Load logs từ database
         logs = self.logger.get_logs(port=self.current_port, limit=10000)
         
-        # Determine format
         if filter_type == "CSV (*.csv)":
             self.export_manager.export_to_csv(logs, filepath)
         elif filter_type == "Text (*.txt)":
@@ -558,20 +505,21 @@ class MainWindow(QMainWindow):
     
     @pyqtSlot()
     def _on_import_data(self):
-        """Import dữ liệu"""
-        # TODO: Implement import
+        """Import data"""
         QMessageBox.information(self, "Info", "Import Data - Coming soon")
     
     @pyqtSlot()
     def _on_about(self):
-        """Hiển thị About dialog"""
-        QMessageBox.about(self, "About", 
-                         "Serial Port Monitor\n\n"
-                         "Version 1.0\n"
-                         "Professional serial port monitoring tool")
+        """Display About dialog"""
+        QMessageBox.about(self, "About SerialView", 
+                         "SerialView\n\n"
+                         "Version: v1.0.0\n"
+                         "Professional serial port monitoring and debugging tool\n\n"
+                         "Author: Pham Nam Hien\n"
+                         "Email: phamnamhien@gmail.com")
     
     def _update_ui_state(self):
-        """Cập nhật trạng thái UI"""
+        """Update UI state"""
         is_connected = False
         if self.current_connection is not None:
             is_connected = self.current_connection.is_connected
@@ -579,12 +527,11 @@ class MainWindow(QMainWindow):
         self.actionConnect.setEnabled(not is_connected)
         self.actionDisconnect.setEnabled(is_connected)
         
-        # Update send panel
         port_name = self.current_port if self.current_port else ""
         self.send_panel.set_connection_state(is_connected, port_name)
     
     def _apply_theme(self, theme: str = "dark"):
-        """Áp dụng theme"""
+        """Apply theme"""
         try:
             if theme == "light":
                 theme_file = "light_theme.qss"
@@ -600,20 +547,13 @@ class MainWindow(QMainWindow):
             theme_path = os.path.join(os.path.dirname(__file__),
                                      f"../../resources/styles/{theme_file}")
             
-            print(f"Loading theme: {theme_path}")
-            print(f"File exists: {os.path.exists(theme_path)}")
-            
             if os.path.exists(theme_path):
                 with open(theme_path, 'r', encoding='utf-8') as f:
                     stylesheet = f.read()
                     self.setStyleSheet(stylesheet)
-                    print(f"{theme.capitalize()} theme loaded successfully")
                     
-                    # Save theme preference
                     self.config_manager.set("ui.theme", theme)
                     self.config_manager.save()
-            else:
-                print(f"Theme file not found: {theme_path}")
         except Exception as e:
             print(f"Error loading theme: {e}")
     
@@ -652,24 +592,20 @@ class MainWindow(QMainWindow):
         QApplication.instance().setPalette(palette)
     
     def _load_window_geometry(self):
-        """Load window geometry từ config"""
+        """Load window geometry from config"""
         geometry = self.config_manager.get("ui.window_geometry")
         if geometry:
-            # TODO: Restore geometry
             pass
     
     def _save_window_geometry(self):
-        """Lưu window geometry vào config"""
-        # TODO: Save geometry
+        """Save window geometry to config"""
         pass
     
     def closeEvent(self, event):
         """Override closeEvent"""
-        # Ngắt kết nối
         if self.current_connection:
             self._disconnect()
         
-        # Lưu config
         self._save_window_geometry()
         self.config_manager.save()
         
