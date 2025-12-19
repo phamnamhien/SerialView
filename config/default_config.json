@@ -1,0 +1,32 @@
+{
+    "serial": {
+        "default_baudrate": 115200,
+        "default_databits": 8,
+        "default_parity": "None",
+        "default_stopbits": 1,
+        "default_timeout": 1.0
+    },
+    "ui": {
+        "theme": "light",
+        "font_family": "Consolas",
+        "font_size": 10,
+        "window_geometry": null,
+        "mdi_mode": true
+    },
+    "display": {
+        "timestamp_format": "%Y-%m-%d %H:%M:%S.%f",
+        "max_buffer_lines": 10000,
+        "auto_scroll": true,
+        "show_hex_address": true
+    },
+    "logging": {
+        "enabled": true,
+        "log_dir": "logs",
+        "max_log_size_mb": 100,
+        "log_level": "INFO"
+    },
+    "script": {
+        "auto_save": true,
+        "templates_dir": "scripts/templates"
+    }
+}
